@@ -510,7 +510,7 @@
 
   <div class="info-box">
     <strong>⚠ Uso responsable</strong><br>
-    Esta herramienta está diseñada para descargar contenido con <strong>permiso explícito</strong> de usar, 
+    Esta herramienta está diseñada para descargar contenido que tengas <strong>permiso explícito</strong> de usar —
     tus propios videos, contenido con licencia Creative Commons o material de dominio público.
     Descargar contenido protegido por derechos de autor sin autorización puede infringir los
     <strong>términos de servicio de YouTube</strong> y las leyes de propiedad intelectual de tu país.
@@ -567,7 +567,6 @@
 
   async function startConversion() {
     const url = document.getElementById('urlInput').value.trim();
-    const quality = document.getElementById('quality').value;
     const format = document.getElementById('format').value;
     const btn = document.getElementById('convertBtn');
 
@@ -586,46 +585,54 @@
     setProgress(10, 'URL válida');
 
     setStep(2, 'active');
-    setProgress(25, 'Obteniendo metadata...');
+    setProgress(25, 'Conectando con el servicio...');
 
     try {
       setStep(3, 'active');
-      setProgress(50, 'Extrayendo y convirtiendo audio...');
+      setProgress(50, 'Procesando audio...');
 
-      const res = await fetch('/api/convert', {
+      const res = await fetch('https://api.cobalt.tools/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, quality, format })
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          url: url,
+          downloadMode: 'audio',
+          audioFormat: format === 'mp3' ? 'mp3' : format === 'wav' ? 'wav' : format === 'opus' ? 'opus' : 'best',
+        })
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Error en el servidor');
-      }
+      if (!res.ok) throw new Error('Error al conectar con el servicio');
+
+      const data = await res.json();
+      if (data.status === 'error') throw new Error(data.error?.code || 'Error desconocido');
 
       setStep(2, 'done');
       setStep(3, 'done');
       setStep(4, 'active');
-      setProgress(80, `Convirtiendo a ${format.toUpperCase()}...`);
+      setProgress(80, 'Preparando descarga...');
 
-      const blob = await res.blob();
-      const contentDisposition = res.headers.get('Content-Disposition') || '';
-      const nameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/i);
-      const filename = nameMatch ? decodeURIComponent(nameMatch[1]) : `audio.${format}`;
+      const downloadUrl = data.url || data.tunnel || null;
+      if (!downloadUrl) throw new Error('No se pudo obtener el link de descarga');
 
       setStep(4, 'done');
       setStep(5, 'active');
-      setProgress(95, 'Preparando descarga...');
+      setProgress(95, 'Iniciando descarga...');
 
-      const blobUrl = URL.createObjectURL(blob);
+      const filename = `audio.${format}`;
       const a = document.createElement('a');
-      a.href = blobUrl;
+      a.href = downloadUrl;
       a.download = filename;
+      a.target = '_blank';
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
 
       setStep(5, 'done');
       setProgress(100, 'Completado');
-      showDownload(filename, blobUrl);
+      showDownload(filename, downloadUrl);
 
     } catch (err) {
       for (let i = 1; i <= 5; i++) {
