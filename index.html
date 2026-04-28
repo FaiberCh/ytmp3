@@ -311,12 +311,12 @@
   }
 
   .download-filename {
-    font-family: 'Inter', sans-serif;
-    font-size: 0.82rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
     color: var(--text);
     margin-bottom: 1rem;
+    word-break: break-all;
     opacity: 0.8;
-    line-height: 1.5;
   }
 
   .btn-download {
@@ -450,18 +450,18 @@
         <div class="step" id="step1"><div class="step-dot"></div><span>Validando URL</span></div>
         <div class="step" id="step2"><div class="step-dot"></div><span>Obteniendo metadata del video</span></div>
         <div class="step" id="step3"><div class="step-dot"></div><span>Extrayendo audio</span></div>
-        <div class="step" id="step4"><div class="step-dot"></div><span>Preparando descarga</span></div>
-        <div class="step" id="step5"><div class="step-dot"></div><span>Redirigiendo a cobalt.tools</span></div>
+        <div class="step" id="step4"><div class="step-dot"></div><span>Convirtiendo a MP3</span></div>
+        <div class="step" id="step5"><div class="step-dot"></div><span>Preparando descarga</span></div>
       </div>
     </div>
 
     <div class="error-msg" id="errorMsg"></div>
 
     <div class="download-card" id="downloadCard">
-      <div class="download-title">✓ Listo</div>
-      <div class="download-filename" id="downloadFilename">Se abrió cobalt.tools con tu URL lista. Si no se abrió automáticamente, haz clic abajo.</div>
-      <a class="btn-download" id="downloadBtn" href="#" target="_blank">
-        ↗ Abrir cobalt.tools
+      <div class="download-title">✓ Listo para descargar</div>
+      <div class="download-filename" id="downloadFilename">—</div>
+      <a class="btn-download" id="downloadBtn" href="#" download>
+        ↓ Descargar
       </a>
     </div>
   </div>
@@ -502,7 +502,7 @@
   }
 
   function showError(msg) {
-    const el = document.getElementById('errorMsg');
+    var el = document.getElementById('errorMsg');
     el.textContent = '✗ ' + msg;
     el.classList.add('active');
   }
@@ -523,6 +523,8 @@
 
   async function startConversion() {
     var url = document.getElementById('urlInput').value.trim();
+    var quality = document.getElementById('quality').value;
+    var format = document.getElementById('format').value;
     var btn = document.getElementById('convertBtn');
 
     if (!url) { showError('Ingresa una URL de YouTube válida.'); return; }
@@ -535,35 +537,65 @@
     document.getElementById('progressWrap').classList.add('active');
 
     setStep(1, 'active');
-    await delay(400);
+    await delay(500);
     setStep(1, 'done');
-    setProgress(25, 'URL válida');
+    setProgress(10, 'URL válida');
 
     setStep(2, 'active');
-    await delay(400);
-    setStep(2, 'done');
-    setProgress(50, 'Procesando...');
+    setProgress(25, 'Obteniendo metadata...');
 
-    setStep(3, 'active');
-    await delay(400);
-    setStep(3, 'done');
-    setProgress(75, 'Preparando...');
+    try {
+      setStep(3, 'active');
+      setProgress(50, 'Extrayendo y convirtiendo audio...');
 
-    setStep(4, 'active');
-    await delay(300);
-    setStep(4, 'done');
-    setStep(5, 'active');
-    setProgress(95, 'Redirigiendo...');
+      var res = await fetch('/api/convert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url, quality: quality, format: format })
+      });
 
-    var cobaltUrl = 'https://cobalt.tools/#' + encodeURIComponent(url);
-    window.open(cobaltUrl, '_blank');
+      if (!res.ok) {
+        var err = await res.json();
+        throw new Error(err.error || 'Error en el servidor');
+      }
 
-    await delay(300);
-    setStep(5, 'done');
-    setProgress(100, 'Completado');
+      setStep(2, 'done');
+      setStep(3, 'done');
+      setStep(4, 'active');
+      setProgress(80, 'Convirtiendo a ' + format.toUpperCase() + '...');
 
-    document.getElementById('downloadBtn').href = cobaltUrl;
-    document.getElementById('downloadCard').classList.add('active');
+      var blob = await res.blob();
+      var contentDisposition = res.headers.get('Content-Disposition') || '';
+      var nameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/i);
+      var filename = nameMatch ? decodeURIComponent(nameMatch[1]) : 'audio.' + format;
+
+      setStep(4, 'done');
+      setStep(5, 'active');
+      setProgress(95, 'Preparando descarga...');
+
+      var blobUrl = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setStep(5, 'done');
+      setProgress(100, 'Completado');
+
+      document.getElementById('downloadFilename').textContent = filename;
+      document.getElementById('downloadBtn').href = blobUrl;
+      document.getElementById('downloadBtn').download = filename;
+      document.getElementById('downloadCard').classList.add('active');
+
+    } catch (err) {
+      for (var i = 1; i <= 5; i++) {
+        var el = document.getElementById('step' + i);
+        if (el.classList.contains('active')) el.className = 'step error';
+      }
+      showError(err.message);
+    }
 
     btn.disabled = false;
   }

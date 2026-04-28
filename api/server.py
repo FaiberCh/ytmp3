@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, send_file
 import yt_dlp
+import imageio_ffmpeg
 import os
 import uuid
 
@@ -32,9 +33,9 @@ def convert():
     output_path = f'/tmp/{output_id}.%(ext)s'
     cookies_path = get_cookies_file()
 
-
     opciones = {
         'format': 'bestaudio[ext=m4a]/bestaudio/best',
+        'ffmpeg_location': imageio_ffmpeg.get_ffmpeg_exe(),
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': fmt,
