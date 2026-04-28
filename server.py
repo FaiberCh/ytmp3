@@ -32,9 +32,9 @@ def convert():
     output_path = f'/tmp/{output_id}.%(ext)s'
     cookies_path = get_cookies_file()
 
+
     opciones = {
         'format': 'bestaudio[ext=m4a]/bestaudio/best',
-        #'format': 'bestaudio/best',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': fmt,
@@ -42,6 +42,11 @@ def convert():
         }],
         'outtmpl': output_path,
         'quiet': True,
+        'extractor_args': {
+            'youtube': {
+                'po_token': ['web+' + os.environ.get('PO_TOKEN', '')]
+            }
+        },
     }
 
     if cookies_path:
