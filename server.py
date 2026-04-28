@@ -5,6 +5,15 @@ import uuid
 
 app = Flask(__name__)
 
+def get_cookies_file():
+    cookies_content = os.environ.get('COOKIES_CONTENT')
+    if cookies_content:
+        cookies_path = f'/tmp/cookies_{uuid.uuid4().hex}.txt'
+        with open(cookies_path, 'w') as f:
+            f.write(cookies_content)
+        return cookies_path
+    return None
+
 @app.route('/')
 def index():
     return send_file('index.html')
@@ -21,6 +30,7 @@ def convert():
 
     output_id = str(uuid.uuid4())
     output_path = f'/tmp/{output_id}.%(ext)s'
+    cookies_path = get_cookies_file()
 
     opciones = {
         'format': 'bestaudio/best',
@@ -33,12 +43,19 @@ def convert():
         'quiet': True,
     }
 
+    if cookies_path:
+        opciones['cookiefile'] = cookies_path
+
     try:
         with yt_dlp.YoutubeDL(opciones) as ydl:
             info = ydl.extract_info(url, download=True)
             title = info.get('title', 'audio')
 
         final_path = f'/tmp/{output_id}.{fmt}'
+
+        if cookies_path and os.path.exists(cookies_path):
+            os.remove(cookies_path)
+
         return send_file(
             final_path,
             as_attachment=True,
@@ -46,6 +63,8 @@ def convert():
             mimetype='audio/mpeg'
         )
     except Exception as e:
+        if cookies_path and os.path.exists(cookies_path):
+            os.remove(cookies_path)
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
