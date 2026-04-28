@@ -33,7 +33,8 @@ def convert():
     cookies_path = get_cookies_file()
 
     opciones = {
-        'format': 'bestaudio/best',
+        'format': 'bestaudio[ext=m4a]/bestaudio/best',
+        #'format': 'bestaudio/best',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': fmt,
