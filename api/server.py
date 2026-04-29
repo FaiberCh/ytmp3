@@ -34,7 +34,7 @@ def convert():
     cookies_path = get_cookies_file()
 
     opciones = {
-        'format': 'bestaudio[ext=m4a]/bestaudio/best',
+        'format': 'bestaudio/best',
         'ffmpeg_location': imageio_ffmpeg.get_ffmpeg_exe(),
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
@@ -45,7 +45,7 @@ def convert():
         'quiet': True,
         'extractor_args': {
             'youtube': {
-                'po_token': ['web+' + os.environ.get('PO_TOKEN', '')]
+                'player_client': ['mweb'],
             }
         },
     }
